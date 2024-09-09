@@ -38,8 +38,8 @@ public class CocktailGameApplication {
 
 				String cocktailName = cocktail.getName();
 				String instructions = cocktail.getInstructions();
-				String hiddenName = "_".repeat(cocktailName.length()).trim();
-				String printName = hiddenName.replace("_", "_ ");
+				String hiddenName = "_".repeat(cocktailName.length()).trim(); //hiding the characters from the player
+				String printName = hiddenName.replace("_", "_ "); //name to be shown to user
 				int attempts = 5;
 
 				System.out.println("Guess the cocktail: " + printName);
