@@ -10,27 +10,19 @@ public class CocktailGameApplication {
 
 	public static void main(String[] args) {
 		try (Connection conn = DriverManager.getConnection(DB_URL, USER, PASS)) {
-			createTable(conn);
+			Util.createTable(conn);
 			playGame(conn);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
 	}
 
-	private static void createTable(Connection conn) throws SQLException {
-		String createTableSQL = "CREATE TABLE IF NOT EXISTS HighScores (id INT AUTO_INCREMENT PRIMARY KEY, playerName VARCHAR(255), score INT)";
-		try (Statement stmt = conn.createStatement()) {
-			stmt.execute(createTableSQL);
-		}
-	}
-
 	private static void playGame(Connection conn) {
 		try (Scanner scanner = new Scanner(System.in)) {
-			;
-			int score = 0;
 
+			int score = 0;
 			while (true) {
-				Cocktail cocktail = getCocktail.getRandomCocktail();
+				Cocktail cocktail = Util.getRandomCocktail();
 				if (cocktail == null) {
 					System.out.println("Failed to fetch cocktail. Exiting game.");
 					break;
@@ -38,8 +30,8 @@ public class CocktailGameApplication {
 
 				String cocktailName = cocktail.getName();
 				String instructions = cocktail.getInstructions();
-				String hiddenName = "_".repeat(cocktailName.length()).trim(); //hiding the characters from the player
-				String printName = hiddenName.replace("_", "_ "); //name to be shown to user
+				String hiddenName = "_".repeat(cocktailName.length()).trim(); // hiding the characters from the player
+				String printName = hiddenName.replace("_", "_ "); // name to be shown to user
 				int attempts = 5;
 
 				System.out.println("Guess the cocktail: " + printName);
@@ -48,7 +40,7 @@ public class CocktailGameApplication {
 
 				while (attempts > 0) {
 					System.out.print("Your guess: ");
-					String guess = scanner.nextLine();
+					String guess = scanner.nextLine(); // need to sanitise and limit input
 
 					if (guess.equalsIgnoreCase(cocktailName)) {
 						score += attempts;
@@ -57,7 +49,7 @@ public class CocktailGameApplication {
 					} else {
 
 						attempts--;
-						hiddenName = revealLetters(cocktailName, hiddenName);
+						hiddenName = Util.revealLetters(cocktailName, hiddenName);
 						System.out.println("Wrong! Attempts left: " + attempts);
 						printName = hiddenName.replace("_", "_ ");
 						System.out.println("Hint: " + printName);
@@ -65,80 +57,34 @@ public class CocktailGameApplication {
 						// additional hints for the player depending on how many attempts left
 						switch (attempts) {
 						case 4:
-							System.out.println("Drink is " + cocktail.getAlcoholic().toString());
+							System.out.println("Drink is " + cocktail.getAlcoholic());
 							break;
 						case 3:
-							System.out.println("Glass used for the drink is " + cocktail.getGlass().toString());
+							System.out.println("Glass used for the drink is " + cocktail.getGlass());
 							break;
 						case 2:
-							System.out.println("Category of the drink is " + cocktail.getCategory().toString());
+							System.out.println("Category of the drink is " + cocktail.getCategory());
 							break;
+						case 1:
+							System.out.println("Category of the drink is " + cocktail.getCategory());
+							break;
+						case 0:
+							System.out.println("Game over! The cocktail was: " + cocktailName);
+							Util.saveHighScore(conn, score);
+							Util.printTop5HighScores(conn);
+							System.exit(0);
+
+						default:
+							System.out.println("Unexpected case, exiting game." + "attempts number is" + attempts);
+							System.exit(0);
 
 						}
 
 					}
 
-					if (attempts == 0) {
-						System.out.println("Game over! The cocktail was: " + cocktailName);
-						saveHighScore(conn, score);
-						printTop5HighScores(conn);
-						return;
-					}
 				}
+
 			}
-		}
-	}
-
-	private static String revealLetters(String name, String hiddenName) {
-		char[] hiddenArray = hiddenName.toCharArray();
-		Random random = new Random();
-		List<Integer> unrevealedIndices = new ArrayList<>();
-
-		for (int i = 0; i < name.length(); i++) {
-			if (hiddenArray[i] == '_') {
-				unrevealedIndices.add(i);
-			}
-		}
-
-		int lettersToReveal = name.length() > 5 ? 2 : 1;
-
-		for (int i = 0; i < lettersToReveal && !unrevealedIndices.isEmpty(); i++) {
-			int randomIndex = unrevealedIndices.remove(random.nextInt(unrevealedIndices.size()));
-			hiddenArray[randomIndex] = name.charAt(randomIndex);
-		}
-
-		return new String(hiddenArray);
-	}
-
-	private static void saveHighScore(Connection conn, int score) {
-		try (Scanner scanner = new Scanner(System.in)) {
-			System.out.print("Enter your name: ");
-			String playerName = scanner.nextLine();
-
-			String insertSQL = "INSERT INTO HighScores (playerName, score) VALUES (?, ?)";
-			try (PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
-				pstmt.setString(1, playerName);
-				pstmt.setInt(2, score);
-				pstmt.executeUpdate();
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
-		}
-	}
-
-	public static void printTop5HighScores(Connection conn) {
-		String query = "SELECT playerName, score FROM HighScores ORDER BY score DESC LIMIT 5";
-
-		try (PreparedStatement pstmt = conn.prepareStatement(query); ResultSet rs = pstmt.executeQuery()) {
-
-			System.out.println("Top 5 High Scores:");
-			while (rs.next()) {
-				String playerName = rs.getString("playerName");
-				int score = rs.getInt("score");
-				System.out.println(playerName + ": " + score);
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
 		}
 	}
 
